@@ -1,0 +1,207 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <stdbool.h>
+
+// --- Definição da Estrutura (Struct) ---
+// Representa uma peça do jogo
+typedef struct {
+    char nome; // Tipo da peça ('I', 'O', 'T', 'L', etc.)
+    int id;    // Identificador único da ordem de criação
+} Peca;
+
+// --- Constantes e Variáveis Globais da Fila ---
+#define MAX_PECAS 8       // Capacidade máxima da Fila de peças futuras
+Peca fila[MAX_PECAS];     // O vetor de structs que armazena as peças
+int frente = 0;           // Índice da peça na frente (a ser jogada)
+int tras = -1;            // Índice da última peça inserida
+int contadorPecas = 0;    // Contador atual de peças na fila
+int contadorIDGlobal = 0; // ID sequencial para garantir unicidade da peça
+
+// --- Protótipos das Funções ---
+void limparBuffer();
+Peca gerarPeca();
+void inicializarFila();
+void exibirFila();
+void inserirPeca(Peca novaPeca); // Enqueue
+Peca jogarPeca();                // Dequeue
+
+// =========================================================================
+//                  I. FUNÇÕES DE APOIO E GERAÇÃO
+// =========================================================================
+
+/**
+ * @brief Limpa o buffer de entrada do teclado.
+ */
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {}
+}
+
+/**
+ * @brief Gera uma nova peça com ID único e tipo aleatório.
+ * @return A nova peça gerada.
+ */
+Peca gerarPeca() {
+    Peca nova;
+    char tipos[] = {'I', 'O', 'T', 'L', 'J', 'S', 'Z'}; // Tipos clássicos de Tetris
+    int indiceAleatorio = rand() % 7; // Gera índice de 0 a 6
+    
+    nova.nome = tipos[indiceAleatorio];
+    nova.id = contadorIDGlobal++; // Atribui ID e incrementa o contador global
+    
+    printf("\n[GERADO] Nova peca: [%c %d]\n", nova.nome, nova.id);
+    return nova;
+}
+
+/**
+ * @brief Inicializa a fila preenchendo-a com o número fixo de peças.
+ */
+void inicializarFila() {
+    srand(time(NULL)); // Inicializa o gerador de números aleatórios
+    printf("--- Inicializando Fila de Pecas (Max: %d) ---\n", MAX_PECAS);
+    
+    for (int i = 0; i < 5; i++) { // Inicializa com 5 elementos, como pedido
+        // A função inserirPeca já cuida da lógica da Fila Circular
+        inserirPeca(gerarPeca()); 
+    }
+    printf("✅ Fila inicializada com sucesso.\n");
+}
+
+
+// =========================================================================
+//                  II. OPERAÇÕES DA FILA CIRCULAR
+// =========================================================================
+
+/**
+ * @brief Insere uma nova peça no final da fila (Enqueue).
+ * @param novaPeca A peça a ser inserida.
+ */
+void inserirPeca(Peca novaPeca) {
+    if (contadorPecas == MAX_PECAS) {
+        printf("\n❌ ERRO: Fila de pecas futuras cheia. Nao e possivel inserir.\n");
+        return;
+    }
+    
+    // Lógica da Fila Circular: O próximo "trás" é (trás + 1) % MAX_PECAS
+    tras = (tras + 1) % MAX_PECAS;
+    fila[tras] = novaPeca;
+    contadorPecas++;
+    
+    // printf("✅ Peca [%c %d] inserida no final (tras: %d).\n", novaPeca.nome, novaPeca.id, tras);
+}
+
+/**
+ * @brief Remove a peça da frente da fila (Dequeue) e simula o ato de jogar.
+ * @return A peça que foi removida.
+ */
+Peca jogarPeca() {
+    Peca pecaRemovida;
+    
+    if (contadorPecas == 0) {
+        printf("\n❌ ERRO: Fila vazia. Nao ha pecas para jogar.\n");
+        // Retorna uma peça vazia para indicar erro
+        pecaRemovida.nome = '\0'; 
+        pecaRemovida.id = -1;
+        return pecaRemovida;
+    }
+    
+    // Pega a peça da frente
+    pecaRemovida = fila[frente];
+    
+    // Lógica da Fila Circular: O próximo "frente" é (frente + 1) % MAX_PECAS
+    frente = (frente + 1) % MAX_PECAS;
+    contadorPecas--;
+    
+    printf("\n--- JOGAR PECA ---\n");
+    printf("🔥 Peca jogada: [%c %d] (Tipo: %c, ID: %d)\n", pecaRemovida.nome, pecaRemovida.id, pecaRemovida.nome, pecaRemovida.id);
+    
+    return pecaRemovida;
+}
+
+/**
+ * @brief Exibe o estado atual da fila, mostrando o tipo e ID de cada peça.
+ */
+void exibirFila() {
+    printf("\n================= FILA DE PECAS FUTURAS =================\n");
+    if (contadorPecas == 0) {
+        printf(" A fila esta vazia.\n");
+        printf("-------------------------------------------------------\n");
+        return;
+    }
+
+    printf(" Capacidade: %d/%d (Frente: %d, Tras: %d)\n", contadorPecas, MAX_PECAS, frente, tras);
+    printf(" Fila de Pecas: ");
+
+    int i = frente;
+    int count = 0;
+
+    // Percorre a Fila Circular
+    while (count < contadorPecas) {
+        printf("[%c %d]", fila[i].nome, fila[i].id);
+        
+        // Move para o próximo índice de forma circular
+        i = (i + 1) % MAX_PECAS;
+        count++;
+        
+        if (count < contadorPecas) {
+            printf(" -> ");
+        }
+    }
+    
+    printf("\n-------------------------------------------------------\n");
+}
+
+
+// =========================================================================
+//                  III. FUNÇÃO PRINCIPAL (MENU)
+// =========================================================================
+
+int main() {
+    int opcao;
+    
+    // 1. Inicializa a Fila e as peças iniciais
+    inicializarFila();
+    
+    do {
+        // 2. Exibe o estado atual da fila
+        exibirFila();
+
+        // 3. Exibe o menu de opções
+        printf("\n================ OPCOES DE ACAO ================\n");
+        printf(" Codigo | Acao\n");
+        printf("------------------------------------------------\n");
+        printf(" 1      | Jogar peca (Dequeue)\n");
+        printf(" 2      | Inserir nova peca (Enqueue)\n");
+        printf(" 0      | Sair\n");
+        printf("------------------------------------------------\n");
+        printf(" Escolha uma opcao: ");
+
+        if (scanf("%d", &opcao) != 1) {
+            opcao = -1; // Sinaliza erro de leitura
+            limparBuffer();
+        } else {
+            limparBuffer();
+        }
+
+        // 4. Executa a ação escolhida
+        switch (opcao) {
+            case 1:
+                // Simula o jogador usando a peça da frente
+                jogarPeca();
+                break;
+            case 2:
+                // Simula o sistema gerando e adicionando uma nova peça
+                inserirPeca(gerarPeca());
+                break;
+            case 0:
+                printf("\n👋 Jogo encerrado. Peças futuras descartadas!\n");
+                break;
+            default:
+                printf("\n⚠️ Opcao invalida. Tente novamente.\n");
+        }
+    } while (opcao != 0);
+
+    return 0;
+}
