@@ -1,0 +1,218 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <stdbool.h>
+
+// --- I. DEFINIÇÕES DE STRUCTS E CONSTANTES ---
+
+// Ficha da Peça
+typedef struct {
+    char nome; // Tipo da peça ('I', 'O', 'T', 'L', etc.)
+    int id;    // Identificador único
+} Peca;
+
+// Capacidades
+#define MAX_FILA 5    // Capacidade da Fila Circular de peças futuras
+#define MAX_PILHA 3   // Capacidade máxima da Pilha de reserva
+
+// --- II. VARIÁVEIS GLOBAIS DE ESTRUTURA ---
+
+// Fila Circular
+Peca filaPecas[MAX_FILA];
+int frente = 0;           // Índice da peça na frente (a ser jogada)
+int tras = -1;            // Índice da última peça inserida
+int contadorFila = 0;     // Número atual de peças na fila
+
+// Pilha (usando Array/Vetor para simplificar o controle de capacidade)
+Peca pilhaReserva[MAX_PILHA];
+int topoPilha = -1;       // Índice do topo (-1 = vazia)
+
+// ID para geração de peças
+int contadorIDGlobal = 0; // ID sequencial para garantir unicidade da peça
+
+// --- III. PROTÓTIPOS DAS FUNÇÕES ---
+void limparBuffer();
+Peca gerarPeca();
+void inicializarEstruturas();
+void exibirEstadoAtual();
+
+// Operações da Fila
+void inserirFila(Peca novaPeca); // Enqueue
+Peca removerFila();              // Dequeue
+
+// Operações da Pilha
+bool push(Peca peca);            // Empilhar na reserva
+Peca pop();                      // Desempilhar da reserva
+
+// Ações do Jogador
+void acao_jogarPeca();
+void acao_reservarPeca();
+void acao_usarReserva();
+
+
+// =========================================================================
+//                  IV. FUNÇÕES DE APOIO E GERAÇÃO
+// =========================================================================
+
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {}
+}
+
+/**
+ * @brief Gera uma nova peça com ID único e tipo aleatório.
+ * @return A nova peça gerada.
+ */
+Peca gerarPeca() {
+    Peca nova;
+    char tipos[] = {'I', 'O', 'T', 'L', 'J', 'S', 'Z'};
+    int indiceAleatorio = rand() % 7;
+    
+    nova.nome = tipos[indiceAleatorio];
+    nova.id = contadorIDGlobal++;
+    
+    return nova;
+}
+
+/**
+ * @brief Exibe o estado da Fila e da Pilha após cada ação.
+ */
+void exibirEstadoAtual() {
+    printf("\n================= ESTADO ATUAL =================\n");
+    
+    // 1. Exibir Fila Circular
+    printf("FILA de Pecas (%d/%d): ", contadorFila, MAX_FILA);
+    if (contadorFila == 0) {
+        printf("Vazia.\n");
+    } else {
+        int i = frente;
+        int count = 0;
+        while (count < contadorFila) {
+            printf("[%c %d]", filaPecas[i].nome, filaPecas[i].id);
+            i = (i + 1) % MAX_FILA;
+            count++;
+            if (count < contadorFila) {
+                printf(" -> ");
+            }
+        }
+        printf("\n");
+    }
+
+    // 2. Exibir Pilha Linear
+    printf("PILHA de Reserva (Topo -> Base) (%d/%d): ", topoPilha + 1, MAX_PILHA);
+    if (topoPilha == -1) {
+        printf("Vazia.\n");
+    } else {
+        for (int i = topoPilha; i >= 0; i--) {
+            printf("[%c %d]", pilhaReserva[i].nome, pilhaReserva[i].id);
+            if (i > 0) {
+                printf(" -> ");
+            }
+        }
+        printf("\n");
+    }
+    printf("------------------------------------------------\n");
+}
+
+/**
+ * @brief Inicializa a Fila e a Pilha.
+ */
+void inicializarEstruturas() {
+    srand(time(NULL));
+    
+    // Inicializa a Fila com 5 elementos
+    for (int i = 0; i < MAX_FILA; i++) {
+        inserirFila(gerarPeca()); 
+    }
+    
+    printf("✅ Estruturas inicializadas (Fila com %d pecas).\n", MAX_FILA);
+}
+
+
+// =========================================================================
+//                  V. OPERAÇÕES DA FILA (CIRCULAR)
+// =========================================================================
+
+/**
+ * @brief Insere uma peça no final da fila (Enqueue).
+ */
+void inserirFila(Peca novaPeca) {
+    if (contadorFila == MAX_FILA) {
+        // Esta checagem é feita na lógica da acao_jogarPeca
+        return; 
+    }
+    
+    // Movimento Circular: (tras + 1) % MAX_FILA
+    tras = (tras + 1) % MAX_FILA;
+    filaPecas[tras] = novaPeca;
+    contadorFila++;
+}
+
+/**
+ * @brief Remove a peça da frente da fila (Dequeue).
+ * @return A peça removida. Retorna ID -1 se vazia.
+ */
+Peca removerFila() {
+    Peca pecaRemovida = {'\0', -1}; // Peça de erro
+    
+    if (contadorFila == 0) {
+        printf("\n❌ Fila vazia. Nao ha pecas para remover.\n");
+        return pecaRemovida;
+    }
+    
+    pecaRemovida = filaPecas[frente];
+    
+    // Movimento Circular: (frente + 1) % MAX_FILA
+    frente = (frente + 1) % MAX_FILA;
+    contadorFila--;
+    
+    return pecaRemovida;
+}
+
+
+// =========================================================================
+//                  VI. OPERAÇÕES DA PILHA (LIFO)
+// =========================================================================
+
+/**
+ * @brief Adiciona uma peça ao topo da pilha (Push).
+ * @return true se o push foi bem sucedido.
+ */
+bool push(Peca peca) {
+    if (topoPilha == MAX_PILHA - 1) {
+        printf("\n❌ Pilha de Reserva Cheia! Nao e possivel reservar mais pecas.\n");
+        return false;
+    }
+    
+    topoPilha++;
+    pilhaReserva[topoPilha] = peca;
+    
+    return true;
+}
+
+/**
+ * @brief Remove e retorna a peça do topo da pilha (Pop).
+ * @return A peça removida. Retorna ID -1 se vazia.
+ */
+Peca pop() {
+    Peca pecaRemovida = {'\0', -1}; // Peça de erro
+
+    if (topoPilha == -1) {
+        printf("\n❌ Pilha de Reserva Vazia. Nao ha pecas para usar.\n");
+        return pecaRemovida;
+    }
+    
+    pecaRemovida = pilhaReserva[topoPilha];
+    topoPilha--;
+    
+    return pecaRemovida;
+}
+
+
+// =========================================================================
+//                  VII. AÇÕES DO JOGADOR
+// =========================================================================
+
+/**
+ * @brief Ação 1: Remove a peça da fila e adiciona uma
